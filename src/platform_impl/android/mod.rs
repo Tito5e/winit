@@ -143,6 +143,8 @@ pub struct EventLoop<T: 'static> {
     cause: StartCause,
     ignore_volume_keys: bool,
     combining_accent: Option<char>,
+
+    scale_factor_cache: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -169,6 +171,9 @@ impl<T: 'static> EventLoop<T> {
         );
         let redraw_flag = SharedFlag::new();
 
+        let monitor = MonitorHandle::new(android_app.clone());
+        let scale_factor_cache = monitor.scale_factor();
+
         Ok(Self {
             android_app: android_app.clone(),
             window_target: event_loop::ActiveEventLoop {
@@ -192,6 +197,8 @@ impl<T: 'static> EventLoop<T> {
             cause: StartCause::Init,
             ignore_volume_keys: attributes.ignore_volume_keys,
             combining_accent: None,
+
+            scale_factor_cache,
         })
     }
 
@@ -244,9 +251,9 @@ impl<T: 'static> EventLoop<T> {
                 },
                 MainEvent::ConfigChanged { .. } => {
                     let monitor = MonitorHandle::new(self.android_app.clone());
-                    let old_scale_factor = monitor.scale_factor();
+                    let old_scale_factor = self.scale_factor_cache;
                     let scale_factor = monitor.scale_factor();
-                    if (scale_factor - old_scale_factor).abs() < f64::EPSILON {
+                    if scale_factor != old_scale_factor {
                         let new_inner_size = Arc::new(Mutex::new(
                             MonitorHandle::new(self.android_app.clone()).size(),
                         ));
